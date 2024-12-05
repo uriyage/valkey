@@ -1,7 +1,7 @@
 #include <stdatomic.h>
 
-#include "../networking.c"
 #include "../server.c"
+#include "../networking.c"
 #include "test_help.h"
 
 int test_backupAndUpdateClientArgv(int argc, char **argv, int flags) {

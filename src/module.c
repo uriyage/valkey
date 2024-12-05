@@ -8358,7 +8358,7 @@ void moduleBlockedClientTimedOut(client *c, int from_module) {
     ctx.blocked_client = bc;
     ctx.blocked_privdata = bc->privdata;
 
-    long long prev_error_replies;
+    long long prev_error_replies = 0;
     if (!from_module) prev_error_replies = server.stat_total_error_replies;
 
     if (bc->timeout_callback) {
