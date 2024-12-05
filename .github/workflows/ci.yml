@@ -13,11 +13,6 @@ jobs:
   
   test-sanitizer-undefined:
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'workflow_dispatch' ||
-        (github.event_name == 'schedule' && github.repository == 'valkey-io/valkey') ||
-        (github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'unstable')) &&
-      !contains(github.event.inputs.skipjobs, 'sanitizer')
     timeout-minutes: 14400
     strategy:
       fail-fast: false
@@ -27,7 +22,6 @@ jobs:
       CC: ${{ matrix.compiler }}
     steps:
       - name: prep
-        if: github.event_name == 'workflow_dispatch'
         run: |
           echo "GITHUB_REPOSITORY=${{github.event.inputs.use_repo}}" >> $GITHUB_ENV
           echo "GITHUB_HEAD_REF=${{github.event.inputs.use_git_ref}}" >> $GITHUB_ENV
