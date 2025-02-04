@@ -1534,6 +1534,9 @@ void disconnectReplicas(void) {
 void unlinkClient(client *c) {
     listNode *ln;
 
+    /* Wait for IO operations to be done before unlinking the client. */
+    waitForClientIO(c);
+
     /* If this is marked as current client unset it. */
     if (c->conn && server.current_client == c) server.current_client = NULL;
 
@@ -1985,7 +1988,7 @@ static void writeToReplica(client *c) {
 
     listNode *first_node = c->repl_data->ref_repl_buf_node;
 
-    /*Handle the single block case */
+    /* Handle the single block case */
     if (first_node == last_node) {
         replBufBlock *b = listNodeValue(first_node);
         c->nwritten = connWrite(c->conn, b->buf + c->repl_data->ref_block_pos, bufpos - c->ref_block_pos);

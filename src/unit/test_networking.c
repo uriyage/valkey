@@ -4,59 +4,59 @@
 
 #include <stdatomic.h>
 
-/* Mock structures and functions */
-typedef struct mockConnection {
+/* Fake structures and functions */
+typedef struct fakeConnection {
     connection conn;
     int error;
     char *buffer;
     size_t buf_size;
     size_t written;
-} mockConnection;
+} fakeConnection;
 
-/* Mock connWrite function */
-static int mock_connWrite(connection *conn, const void *data, size_t size) {
-    mockConnection *mock = (mockConnection *)conn;
-    if (mock->error) return -1;
+/* Fake connWrite function */
+static int fake_connWrite(connection *conn, const void *data, size_t size) {
+    fakeConnection *fake_conn = (fakeConnection *)conn;
+    if (fake_conn->error) return -1;
 
     size_t to_write = size;
-    if (mock->written + to_write > mock->buf_size) {
-        to_write = mock->buf_size - mock->written;
+    if (fake_conn->written + to_write > fake_conn->buf_size) {
+        to_write = fake_conn->buf_size - fake_conn->written;
     }
 
-    memcpy(mock->buffer + mock->written, data, to_write);
-    mock->written += to_write;
+    memcpy(fake_conn->buffer + fake_conn->written, data, to_write);
+    fake_conn->written += to_write;
     return to_write;
 }
 
-/* Mock connWritev function */
-static int mock_connWritev(connection *conn, const struct iovec *iov, int iovcnt) {
-    mockConnection *mock = (mockConnection *)conn;
-    if (mock->error) return -1;
+/* Fake connWritev function */
+static int fake_connWritev(connection *conn, const struct iovec *iov, int iovcnt) {
+    fakeConnection *fake_conn = (fakeConnection *)conn;
+    if (fake_conn->error) return -1;
 
     size_t total = 0;
     for (int i = 0; i < iovcnt; i++) {
         size_t to_write = iov[i].iov_len;
-        if (mock->written + to_write > mock->buf_size) {
-            to_write = mock->buf_size - mock->written;
+        if (fake_conn->written + to_write > fake_conn->buf_size) {
+            to_write = fake_conn->buf_size - fake_conn->written;
         }
         if (to_write == 0) break;
 
-        memcpy(mock->buffer + mock->written, iov[i].iov_base, to_write);
-        mock->written += to_write;
+        memcpy(fake_conn->buffer + fake_conn->written, iov[i].iov_base, to_write);
+        fake_conn->written += to_write;
         total += to_write;
     }
     return total;
 }
 
-/* Mock connection type */
-static ConnectionType CT_Mock = {
-    .write = mock_connWrite,
-    .writev = mock_connWritev,
+/* Fake connection type */
+static ConnectionType CT_Fake = {
+    .write = fake_connWrite,
+    .writev = fake_connWritev,
 };
 
-static mockConnection *connCreateMock(void) {
-    mockConnection *conn = zcalloc(sizeof(mockConnection));
-    conn->conn.type = &CT_Mock;
+static fakeConnection *connCreateFake(void) {
+    fakeConnection *conn = zcalloc(sizeof(fakeConnection));
+    conn->conn.type = &CT_Fake;
     conn->conn.fd = -1;
     conn->conn.iovcnt = IOV_MAX;
     return conn;
@@ -73,10 +73,10 @@ int test_writeToReplica(int argc, char **argv, int flags) {
 
     /* Test 1: Single block write */
     {
-        mockConnection *mock_conn = connCreateMock();
-        mock_conn->buffer = zmalloc(1024);
-        mock_conn->buf_size = 1024;
-        c->conn = (connection *)mock_conn;
+        fakeConnection *fake_conn = connCreateFake();
+        fake_conn->buffer = zmalloc(1024);
+        fake_conn->buf_size = 1024;
+        c->conn = (connection *)fake_conn;
 
         /* Create replication buffer block */
         replBufBlock *block = zmalloc(sizeof(replBufBlock) + 128);
@@ -93,25 +93,25 @@ int test_writeToReplica(int argc, char **argv, int flags) {
         writeToReplica(c);
 
         TEST_ASSERT(c->nwritten == 64);
-        TEST_ASSERT(mock_conn->written == 64);
-        TEST_ASSERT(memcmp(mock_conn->buffer, block->buf, 64) == 0);
+        TEST_ASSERT(fake_conn->written == 64);
+        TEST_ASSERT(memcmp(fake_conn->buffer, block->buf, 64) == 0);
         TEST_ASSERT((c->write_flags & WRITE_FLAGS_WRITE_ERROR) == 0);
 
         /* Cleanup */
-        zfree(mock_conn->buffer);
-        zfree(mock_conn);
+        zfree(fake_conn->buffer);
+        zfree(fake_conn);
         zfree(block);
         listEmpty(server.repl_buffer_blocks);
     }
 
     /* Test 2: Multiple blocks write */
     {
-        mockConnection *mock_conn = connCreateMock();
-        mock_conn->error = 0;
-        mock_conn->written = 0;
-        mock_conn->buffer = zmalloc(1024);
-        mock_conn->buf_size = 1024;
-        c->conn = (connection *)mock_conn;
+        fakeConnection *fake_conn = connCreateFake();
+        fake_conn->error = 0;
+        fake_conn->written = 0;
+        fake_conn->buffer = zmalloc(1024);
+        fake_conn->buf_size = 1024;
+        c->conn = (connection *)fake_conn;
 
         /* Create multiple replication buffer blocks */
         replBufBlock *block1 = zmalloc(sizeof(replBufBlock) + 128);
@@ -133,14 +133,14 @@ int test_writeToReplica(int argc, char **argv, int flags) {
         writeToReplica(c);
 
         TEST_ASSERT(c->nwritten == 96); /* 64 + 32 */
-        TEST_ASSERT(mock_conn->written == 96);
-        TEST_ASSERT(memcmp(mock_conn->buffer, block1->buf, 64) == 0);
-        TEST_ASSERT(memcmp(mock_conn->buffer + 64, block2->buf, 32) == 0);
+        TEST_ASSERT(fake_conn->written == 96);
+        TEST_ASSERT(memcmp(fake_conn->buffer, block1->buf, 64) == 0);
+        TEST_ASSERT(memcmp(fake_conn->buffer + 64, block2->buf, 32) == 0);
         TEST_ASSERT((c->write_flags & WRITE_FLAGS_WRITE_ERROR) == 0);
 
         /* Cleanup */
-        zfree(mock_conn->buffer);
-        zfree(mock_conn);
+        zfree(fake_conn->buffer);
+        zfree(fake_conn);
         zfree(block1);
         zfree(block2);
         listEmpty(server.repl_buffer_blocks);
@@ -148,12 +148,12 @@ int test_writeToReplica(int argc, char **argv, int flags) {
 
     /* Test 3: Write error */
     {
-        mockConnection *mock_conn = connCreateMock();
-        mock_conn->error = 1; /* Simulate write error */
-        mock_conn->buffer = zmalloc(1024);
-        mock_conn->buf_size = 1024;
-        mock_conn->written = 0;
-        c->conn = (connection *)mock_conn;
+        fakeConnection *fake_conn = connCreateFake();
+        fake_conn->error = 1; /* Simulate write error */
+        fake_conn->buffer = zmalloc(1024);
+        fake_conn->buf_size = 1024;
+        fake_conn->written = 0;
+        c->conn = (connection *)fake_conn;
 
         /* Create replication buffer block */
         replBufBlock *block = zmalloc(sizeof(replBufBlock) + 128);
@@ -174,8 +174,8 @@ int test_writeToReplica(int argc, char **argv, int flags) {
 
         /* Cleanup */
         listEmpty(server.repl_buffer_blocks);
-        zfree(mock_conn->buffer);
-        zfree(mock_conn);
+        zfree(fake_conn->buffer);
+        zfree(fake_conn);
         zfree(block);
     }
 
