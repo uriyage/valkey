@@ -1946,9 +1946,9 @@ static void postWriteToReplica(client *c) {
      * decrement reference counts of all nodes in front of it.
      * Set c->ref_repl_buf_node to point to the last node and
      * c->ref_block_pos to the offset within that node  */
-    listNode *curr = c->ref_repl_buf_node;
+    listNode *curr = c->repl_data->ref_repl_buf_node;
     listNode *next = NULL;
-    size_t nwritten = c->nwritten + c->ref_block_pos;
+    size_t nwritten = c->nwritten + c->repl_data->ref_block_pos;
     replBufBlock *o = listNodeValue(curr);
 
     while (nwritten >= o->used) {
@@ -1964,8 +1964,8 @@ static void postWriteToReplica(client *c) {
     }
 
     serverAssert(nwritten <= o->used);
-    c->ref_repl_buf_node = curr;
-    c->ref_block_pos = nwritten;
+    c->repl_data->ref_repl_buf_node = curr;
+    c->repl_data->ref_block_pos = nwritten;
 
     incrementalTrimReplicationBacklog(REPL_BACKLOG_TRIM_BLOCKS_PER_CALL);
 }
@@ -1991,7 +1991,7 @@ static void writeToReplica(client *c) {
     /* Handle the single block case */
     if (first_node == last_node) {
         replBufBlock *b = listNodeValue(first_node);
-        c->nwritten = connWrite(c->conn, b->buf + c->repl_data->ref_block_pos, bufpos - c->ref_block_pos);
+        c->nwritten = connWrite(c->conn, b->buf + c->repl_data->ref_block_pos, bufpos - c->repl_data->ref_block_pos);
         if (c->nwritten <= 0) {
             c->write_flags |= WRITE_FLAGS_WRITE_ERROR;
         }
@@ -2007,7 +2007,7 @@ static void writeToReplica(client *c) {
 
     for (listNode *cur_node = first_node; cur_node != NULL && iovcnt < iovmax; cur_node = listNextNode(cur_node)) {
         replBufBlock *cur_block = listNodeValue(cur_node);
-        size_t start = (cur_node == first_node) ? c->ref_block_pos : 0;
+        size_t start = (cur_node == first_node) ? c->repl_data->ref_block_pos : 0;
         size_t len = (cur_node == last_node) ? bufpos : cur_block->used;
         len -= start;
 
