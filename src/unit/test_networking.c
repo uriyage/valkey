@@ -68,7 +68,9 @@ int test_writeToReplica(int argc, char **argv, int flags) {
     UNUSED(flags);
 
     client *c = zcalloc(sizeof(client));
+    initClientReplicationData(c);
     server.repl_buffer_blocks = listCreate();
+    createReplicationBacklog();
     c->reply = listCreate();
 
     /* Test 1: Single block write */
@@ -86,8 +88,8 @@ int test_writeToReplica(int argc, char **argv, int flags) {
 
         /* Setup client state */
         listAddNodeTail(server.repl_buffer_blocks, block);
-        c->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
-        c->ref_block_pos = 0;
+        c->repl_data->ref_repl_buf_node  = listFirst(server.repl_buffer_blocks);
+        c->repl_data->ref_block_pos = 0;
         c->bufpos = 0;
 
         writeToReplica(c);
@@ -126,8 +128,8 @@ int test_writeToReplica(int argc, char **argv, int flags) {
         /* Setup client state */
         listAddNodeTail(server.repl_buffer_blocks, block1);
         listAddNodeTail(server.repl_buffer_blocks, block2);
-        c->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
-        c->ref_block_pos = 0;
+        c->repl_data->ref_repl_buf_node  = listFirst(server.repl_buffer_blocks);
+        c->repl_data->ref_block_pos = 0;
         c->bufpos = 0;
 
         writeToReplica(c);
@@ -163,8 +165,9 @@ int test_writeToReplica(int argc, char **argv, int flags) {
 
         /* Setup client state */
         listAddNodeTail(server.repl_buffer_blocks, block);
-        c->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
-        c->ref_block_pos = 0;
+        block->refcount = 1;
+        c->repl_data->ref_repl_buf_node  = listFirst(server.repl_buffer_blocks);
+        c->repl_data->ref_block_pos = 0;
         c->bufpos = 0;
 
         writeToReplica(c);
@@ -182,6 +185,7 @@ int test_writeToReplica(int argc, char **argv, int flags) {
     /* Cleanup */
     listRelease(server.repl_buffer_blocks);
     listRelease(c->reply);
+    freeClientReplicationData(c);
     zfree(c);
 
     return 0;
@@ -193,9 +197,9 @@ int test_postWriteToReplica(int argc, char **argv, int flags) {
     UNUSED(flags);
 
     client *c = zcalloc(sizeof(client));
+    initClientReplicationData(c);
     server.repl_buffer_blocks = listCreate();
     c->reply = listCreate();
-    createReplicationBacklog();
 
     /* Test 1: No write case */
     {
@@ -215,8 +219,8 @@ int test_postWriteToReplica(int argc, char **argv, int flags) {
         block->refcount = 1;
 
         listAddNodeTail(server.repl_buffer_blocks, block);
-        c->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
-        c->ref_block_pos = 20;
+        c->repl_data->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
+        c->repl_data->ref_block_pos = 20;
         c->nwritten = 30;
 
         server.stat_net_repl_output_bytes = 0;
@@ -224,8 +228,8 @@ int test_postWriteToReplica(int argc, char **argv, int flags) {
         postWriteToReplica(c);
 
         TEST_ASSERT(server.stat_net_repl_output_bytes == 30);
-        TEST_ASSERT(c->ref_block_pos == 50); /* 20 + 30 */
-        TEST_ASSERT(c->ref_repl_buf_node == listFirst(server.repl_buffer_blocks));
+        TEST_ASSERT(c->repl_data->ref_block_pos == 50); /* 20 + 30 */
+        TEST_ASSERT(c->repl_data->ref_repl_buf_node  == listFirst(server.repl_buffer_blocks));
         TEST_ASSERT(block->refcount == 1);
 
         /* Cleanup */
@@ -246,8 +250,8 @@ int test_postWriteToReplica(int argc, char **argv, int flags) {
 
         listAddNodeTail(server.repl_buffer_blocks, block1);
         listAddNodeTail(server.repl_buffer_blocks, block2);
-        c->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
-        c->ref_block_pos = 30;
+        c->repl_data->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
+        c->repl_data->ref_block_pos = 30;
         c->nwritten = 50;
 
         server.stat_net_repl_output_bytes = 0;
@@ -255,8 +259,8 @@ int test_postWriteToReplica(int argc, char **argv, int flags) {
         postWriteToReplica(c);
 
         TEST_ASSERT(server.stat_net_repl_output_bytes == 50);
-        TEST_ASSERT(c->ref_block_pos == 16); /* (30 + 50) - 64 */
-        TEST_ASSERT(c->ref_repl_buf_node == listLast(server.repl_buffer_blocks));
+        TEST_ASSERT(c->repl_data->ref_block_pos == 16); /* (30 + 50) - 64 */
+        TEST_ASSERT(c->repl_data->ref_repl_buf_node == listLast(server.repl_buffer_blocks));
         TEST_ASSERT(block1->refcount == 0);
         TEST_ASSERT(block2->refcount == 1);
 
@@ -275,8 +279,8 @@ int test_postWriteToReplica(int argc, char **argv, int flags) {
 
         /* Setup client state */
         listAddNodeTail(server.repl_buffer_blocks, block);
-        c->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
-        c->ref_block_pos = 30;
+        c->repl_data->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
+        c->repl_data->ref_block_pos = 30;
         c->nwritten = 34; /* Should reach exactly the end of block */
 
         server.stat_net_repl_output_bytes = 0;
@@ -284,8 +288,8 @@ int test_postWriteToReplica(int argc, char **argv, int flags) {
         postWriteToReplica(c);
 
         TEST_ASSERT(server.stat_net_repl_output_bytes == 34);
-        TEST_ASSERT(c->ref_block_pos == 64);
-        TEST_ASSERT(c->ref_repl_buf_node == listFirst(server.repl_buffer_blocks));
+        TEST_ASSERT(c->repl_data->ref_block_pos == 64);
+        TEST_ASSERT(c->repl_data->ref_repl_buf_node == listFirst(server.repl_buffer_blocks));
         TEST_ASSERT(block->refcount == 1); /* we don't free the last block even if it's fully written */
 
         /* Cleanup */
@@ -294,6 +298,7 @@ int test_postWriteToReplica(int argc, char **argv, int flags) {
     }
 
     /* Cleanup */
+    freeClientReplicationData(c);
     raxFree(server.repl_backlog->blocks_index);
     zfree(server.repl_backlog);
     listRelease(server.repl_buffer_blocks);
