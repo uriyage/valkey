@@ -88,7 +88,7 @@ int test_writeToReplica(int argc, char **argv, int flags) {
 
         /* Setup client state */
         listAddNodeTail(server.repl_buffer_blocks, block);
-        c->repl_data->ref_repl_buf_node  = listFirst(server.repl_buffer_blocks);
+        c->repl_data->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
         c->repl_data->ref_block_pos = 0;
         c->bufpos = 0;
 
@@ -128,7 +128,7 @@ int test_writeToReplica(int argc, char **argv, int flags) {
         /* Setup client state */
         listAddNodeTail(server.repl_buffer_blocks, block1);
         listAddNodeTail(server.repl_buffer_blocks, block2);
-        c->repl_data->ref_repl_buf_node  = listFirst(server.repl_buffer_blocks);
+        c->repl_data->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
         c->repl_data->ref_block_pos = 0;
         c->bufpos = 0;
 
@@ -166,7 +166,7 @@ int test_writeToReplica(int argc, char **argv, int flags) {
         /* Setup client state */
         listAddNodeTail(server.repl_buffer_blocks, block);
         block->refcount = 1;
-        c->repl_data->ref_repl_buf_node  = listFirst(server.repl_buffer_blocks);
+        c->repl_data->ref_repl_buf_node = listFirst(server.repl_buffer_blocks);
         c->repl_data->ref_block_pos = 0;
         c->bufpos = 0;
 
@@ -229,7 +229,7 @@ int test_postWriteToReplica(int argc, char **argv, int flags) {
 
         TEST_ASSERT(server.stat_net_repl_output_bytes == 30);
         TEST_ASSERT(c->repl_data->ref_block_pos == 50); /* 20 + 30 */
-        TEST_ASSERT(c->repl_data->ref_repl_buf_node  == listFirst(server.repl_buffer_blocks));
+        TEST_ASSERT(c->repl_data->ref_repl_buf_node == listFirst(server.repl_buffer_blocks));
         TEST_ASSERT(block->refcount == 1);
 
         /* Cleanup */
