@@ -189,7 +189,7 @@ void listDelNode(list *list, listNode *node) {
  * Remove the specified node from the list without freeing it.
  */
 void listUnlinkNode(list *list, listNode *node) {
-    serverAssert(list->len > 0);
+    assert(list->len > 0);
     if (node->prev)
         node->prev->next = node->next;
     else
