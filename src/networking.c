@@ -1583,10 +1583,11 @@ void unlinkClient(client *c) {
 
     /* Remove from the list of pending writes if needed. */
     if (c->flag.pending_write) {
-        serverAssert(&c->clients_pending_write_node.next != NULL || &c->clients_pending_write_node.prev != NULL);
         if (c->io_write_state == CLIENT_IDLE) {
+            serverAssert(listSearchKey(server.clients_pending_write, c) != NULL);
             listUnlinkNode(server.clients_pending_write, &c->clients_pending_write_node);
         } else {
+            serverAssert(listSearchKey(server.clients_pending_io_write, c) != NULL);
             listUnlinkNode(server.clients_pending_io_write, &c->clients_pending_write_node);
         }
         c->flag.pending_write = 0;
