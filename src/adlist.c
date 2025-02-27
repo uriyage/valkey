@@ -32,7 +32,7 @@
 #include <stdlib.h>
 #include "adlist.h"
 
-#include "server.h"
+#include "serverassert.h"
 #include "zmalloc.h"
 
 /* Create a new list. The created list can be freed with
