@@ -190,14 +190,22 @@ void listDelNode(list *list, listNode *node) {
  */
 void listUnlinkNode(list *list, listNode *node) {
     assert(list->len > 0);
-    if (node->prev)
+
+    if (node->prev) {
+        assert(node->prev->next == node);
         node->prev->next = node->next;
-    else
+    } else {
+        assert(list->head == node);
         list->head = node->next;
-    if (node->next)
+    }
+
+    if (node->next) {
+        assert(node->next->prev == node);
         node->next->prev = node->prev;
-    else
+    } else {
+        assert(list->tail == node);
         list->tail = node->prev;
+    }
 
     node->next = NULL;
     node->prev = NULL;
